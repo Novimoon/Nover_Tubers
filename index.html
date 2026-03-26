@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NoverTube - Gacha Video</title>
+    <link rel="icon" type="image/x-icon" href="https://i.postimg.cc/BQsvj5Lx/unnamed.jpg">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    colors: {
+                        ytbg: '#09090b',
+                        ytcard: '#18181b',
+                        ythover: '#27272a',
+                        accent: '#6366f1',
+                        accenthover: '#4f46e5',
+                        textmain: '#fafafa',
+                        textsub: '#a1a1aa',
+                        danger: '#ef4444'
+                    }
+                }
+            }
+        }
+    </script>
+
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
+
+    <style>
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #09090b; }
+        ::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 10px; }
+        
+        body { 
+            background-color: #09090b; 
+            background-image: radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.15) 0px, transparent 50%),
+                              radial-gradient(at 100% 100%, rgba(168, 85, 247, 0.1) 0px, transparent 50%);
+            color: #fafafa; 
+        }
+
+        .video-card { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        .video-card:hover { transform: translateY(-4px); }
+        .glass {
+            background: rgba(24, 24, 27, 0.8);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+    </style>
+</head>
+<body class="h-screen flex flex-col overflow-hidden selection:bg-accent selection:text-white">
+
+    <header class="flex items-center justify-between px-6 py-2 h-16 glass sticky top-0 z-40">
+        <div class="flex items-center gap-6">
+            <div class="flex items-center gap-2 cursor-pointer group" onclick="goHome()">
+                <div class="w-10 h-10 rounded-xl overflow-hidden shadow-lg shadow-accent/20 group-hover:scale-110 transition-transform">
+              <img src="https://i.postimg.cc/BQsvj5Lx/unnamed.jpg" alt="Logo" class="w-full h-full object-cover">
+                </div>
+                <div class="flex flex-col justify-center">
+                    <span class="text-xl font-bold tracking-tight hidden sm:block">Nover<span class="text-accent">Tube!</span></span>
+                    <span class="text-[8px] opacity-40 leading-none hidden sm:block">by @Novi._.moon0</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="flex-1 max-w-[600px] flex items-center mx-4">
+            <div class="flex w-full items-center bg-ytcard/50 border border-white/10 rounded-2xl overflow-hidden focus-within:border-accent/50 focus-within:ring-4 focus-within:ring-accent/10 transition-all">
+                <input type="text" id="searchInput" oninput="handleSearch()" placeholder="Search content..." class="w-full bg-transparent text-textmain px-5 py-2.5 focus:outline-none placeholder-textsub/50">
+                <div class="pr-5 text-textsub"><i data-lucide="search" class="w-5 h-5"></i></div>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-3">
+            <button id="addVideoBtn" onclick="openAddVideoModal()" class="hidden items-center gap-2 bg-accent hover:bg-accenthover text-white px-4 py-2 rounded-xl text-sm font-semibold transition-all shadow-lg shadow-accent/20">
+                <i data-lucide="plus" class="w-4 h-4"></i>
+                <span class="hidden sm:inline">Add Video</span>
+            </button>
+
+            <button onclick="toggleDevMode()" class="p-2.5 hover:bg-ythover rounded-xl transition-all border border-white/5" title="Developer Login">
+                <i data-lucide="sparkle" class="w-5 h-5 text-textsub" id="devStarIcon"></i>
+            </button>
+        </div>
+    </header>
+
+    <div class="flex flex-1 overflow-hidden">
+        <main class="flex-1 overflow-y-auto" id="mainScrollArea">
+            <div class="p-8 max-w-[1800px] mx-auto">
+                <div id="videoGrid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-8">
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <div id="loginModal" class="fixed inset-0 bg-black/90 backdrop-blur-md z-50 flex items-center justify-center hidden">
+        <div class="bg-ytcard p-8 rounded-3xl w-full max-w-md border border-white/10 shadow-2xl scale-95 transition-transform" id="loginModalContent">
+            <h2 class="text-2xl font-bold mb-2">Developer Access</h2>
+            <p class="text-textsub text-sm mb-6">Enter password to unlock developer tools.</p>
+            <form onsubmit="handleLogin(event)">
+                <input type="password" id="devPassword" placeholder="••••••••" class="w-full bg-ytbg border border-white/10 rounded-xl px-4 py-3 text-textmain mb-4 outline-none focus:border-accent">
+                <button type="submit" class="w-full bg-accent hover:bg-accenthover py-3 rounded-xl font-bold">Unlock Tools</button>
+                <button type="button" onclick="closeModal('loginModal')" class="w-full mt-2 text-textsub text-sm py-2">Cancel</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="addVideoModal" class="fixed inset-0 bg-black/90 backdrop-blur-md z-50 flex items-center justify-center hidden">
+        <div class="bg-ytcard p-8 rounded-3xl w-full max-w-md border border-white/10 shadow-2xl scale-95 transition-transform" id="addVideoModalContent">
+            <h2 class="text-2xl font-bold mb-6 text-textmain">Add New Video</h2>
+            <form onsubmit="submitAddVideo(event)">
+                <div class="space-y-4">
+                    <div>
+                        <label class="text-[10px] font-bold text-textsub uppercase tracking-[0.2em]">YouTube URL</label>
+                        <input type="url" id="ytUrl" placeholder="https://www.youtube.com/watch?v=..." class="w-full bg-ytbg border border-white/10 rounded-xl px-4 py-3 mt-1 outline-none focus:border-accent text-textmain" required>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="text-[10px] font-bold text-textsub uppercase tracking-[0.2em]">Duration</label>
+                            <input type="text" id="videoDuration" placeholder="e.g. 12:05" class="w-full bg-ytbg border border-white/10 rounded-xl px-4 py-3 mt-1 outline-none focus:border-accent text-textmain" required>
+                        </div>
+                        <div>
+                            <label class="text-[10px] font-bold text-textsub uppercase tracking-[0.2em]">Custom Title</label>
+                            <input type="text" id="customTitle" placeholder="Optional" class="w-full bg-ytbg border border-white/10 rounded-xl px-4 py-3 mt-1 outline-none focus:border-accent text-textmain">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="text-[10px] font-bold text-textsub uppercase tracking-[0.2em]">Channel Avatar URL</label>
+                        <input type="url" id="channelAvatarUrl" placeholder="https://..." class="w-full bg-ytbg border border-white/10 rounded-xl px-4 py-3 mt-1 outline-none focus:border-accent text-textmain">
+                    </div>
+                </div>
+                <div class="flex gap-3 mt-8">
+                    <button type="button" onclick="closeModal('addVideoModal')" class="flex-1 py-3 rounded-xl hover:bg-white/5 transition-all">Cancel</button>
+                    <button type="submit" id="submitBtn" class="flex-1 bg-accent py-3 rounded-xl font-bold shadow-lg shadow-accent/20">Add Video</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="playerModal" class="fixed inset-0 bg-black/95 z-[60] flex flex-col hidden">
+        <div class="p-6 flex justify-end">
+            <button onclick="closePlayer()" class="w-12 h-12 bg-white/10 rounded-full flex items-center justify-center text-white hover:bg-danger transition-colors">
+                <i data-lucide="x"></i>
+            </button>
+        </div>
+        <div class="flex-1 flex items-center justify-center p-4" id="playerContainer"></div>
+    </div>
+
+    <script>
+        // إعدادات Firebase الجديدة المدمجة
+        const firebaseConfig = {
+            apiKey: "AIzaSyCvEhpPrHn4s4sh7d2IiDmGALemasrpeeM", 
+            authDomain: "novertube.firebaseapp.com",
+            projectId: "novertube",
+            storageBucket: "novertube.firebasestorage.app",
+            messagingSenderId: "889433888521",
+            appId: "1:889433888521:web:39bb8a30c124060674a5d8",
+            measurementId: "G-V4115Z3HP9"
+        };
+
+        let db = null;
+        // التحقق من وجود المفتاح قبل التشغيل
+        if (firebaseConfig.apiKey !== "ضع_مفتاحك_هنا_API_KEY") {
+            firebase.initializeApp(firebaseConfig);
+            db = firebase.firestore();
+        }
+
+        const DEV_PASSWORD = "N0ovim_o0n4751";
+        let isDevMode = false;
+        let videos = [];
+
+        function init() {
+            if (db) {
+                db.collection("videos").orderBy("createdAt", "desc").onSnapshot(snapshot => {
+                    videos = snapshot.docs.map(doc => ({ firebaseId: doc.id, ...doc.data() }));
+                    renderVideos();
+                });
+            } else {
+                const local = localStorage.getItem('streamhub_videos');
+                videos = local ? JSON.parse(local) : [];
+                renderVideos();
+            }
+        }
+
+        function renderVideos(filter = '') {
+            const grid = document.getElementById('videoGrid');
+            grid.innerHTML = '';
+            const query = filter.toLowerCase();
+            const filtered = videos.filter(v => v.title.toLowerCase().includes(query) || v.channel.toLowerCase().includes(query));
+
+            if (filtered.length === 0) {
+                grid.innerHTML = `<div class="col-span-full text-center py-20 text-textsub">No content available.</div>`;
+            } else {
+                filtered.forEach(video => {
+                    const avatar = video.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(video.channel)}&background=random&color=fff`;
+                    const card = document.createElement('div');
+                    card.className = 'video-card group relative';
+                    card.innerHTML = `
+                        <div class="aspect-video rounded-[2rem] overflow-hidden bg-ytcard mb-4 cursor-pointer shadow-2xl relative" onclick="playVideo('${video.id}')">
+                            <img src="https://img.youtube.com/vi/${video.id}/maxresdefault.jpg" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" onerror="this.src='https://img.youtube.com/vi/${video.id}/hqdefault.jpg'">
+                            <div class="absolute bottom-4 right-4 bg-black/80 backdrop-blur-md text-white text-[11px] font-bold px-2.5 py-1 rounded-lg">
+                                ${video.duration || '0:00'}
+                            </div>
+                        </div>
+                        <div class="flex gap-4 px-2">
+                            <img src="${avatar}" class="w-12 h-12 rounded-2xl shadow-md object-cover bg-ytcard shrink-0">
+                            <div class="flex-1 overflow-hidden">
+                                <h3 class="font-bold text-lg line-clamp-2 text-textmain group-hover:text-accent cursor-pointer transition-colors" onclick="playVideo('${video.id}')">${video.title}</h3>
+                                <p class="text-textsub text-sm mt-1 font-medium">${video.channel}</p>
+                            </div>
+                        </div>
+                        ${isDevMode ? `<button onclick="deleteVideo('${video.firebaseId || video.id}', event)" class="absolute top-4 right-4 bg-danger/90 p-2.5 rounded-2xl text-white shadow-xl hover:bg-danger transition-all"><i data-lucide="trash-2" class="w-5 h-5"></i></button>` : ''}
+                    `;
+                    grid.appendChild(card);
+                });
+            }
+            lucide.createIcons();
+        }
+
+        async function submitAddVideo(e) {
+            e.preventDefault();
+            const url = document.getElementById('ytUrl').value;
+            const duration = document.getElementById('videoDuration').value.trim();
+            const customTitle = document.getElementById('customTitle').value.trim();
+            const customAvatar = document.getElementById('channelAvatarUrl').value.trim();
+            const idMatch = url.match(/(?:youtu\.be\/|youtube\.com\/(?:.*v=|\/embed\/|\/v\/))([^?&"'>]+)/);
+            const videoId = idMatch ? idMatch[1] : null;
+
+            if (!videoId) return alert("Invalid URL.");
+            
+            const btn = document.getElementById('submitBtn');
+            btn.innerText = "Syncing...";
+            btn.disabled = true;
+
+            try {
+                const res = await fetch(`https://noembed.com/embed?url=https://www.youtube.com/watch?v=${videoId}`);
+                const data = await res.json();
+                
+                const newVideo = {
+                    id: videoId,
+                    title: customTitle || data.title || "Video",
+                    channel: data.author_name || "Original Creator",
+                    avatar: customAvatar || null,
+                    duration: duration,
+                    createdAt: db ? firebase.firestore.FieldValue.serverTimestamp() : Date.now()
+                };
+
+                if (db) {
+                    await db.collection("videos").add(newVideo);
+                } else {
+                    videos.unshift(newVideo);
+                    localStorage.setItem('streamhub_videos', JSON.stringify(videos));
+                    renderVideos();
+                }
+                closeModal('addVideoModal');
+            } catch (err) {
+                alert("Metadata error.");
+            } finally {
+                btn.innerText = "Add Video";
+                btn.disabled = false;
+            }
+        }
+
+        function toggleDevMode() { 
+            if (isDevMode) { isDevMode = false; updateDevUI(); renderVideos(); } 
+            else { openModal('loginModal'); } 
+        }
+
+        function handleLogin(e) {
+            e.preventDefault();
+            if (document.getElementById('devPassword').value === DEV_PASSWORD) {
+                isDevMode = true; closeModal('loginModal'); updateDevUI(); renderVideos();
+            } else { alert("Wrong password."); }
+        }
+
+        function updateDevUI() {
+            const addBtn = document.getElementById('addVideoBtn');
+            const icon = document.getElementById('devStarIcon');
+            if (isDevMode) {
+                addBtn.classList.remove('hidden');
+                addBtn.classList.add('flex');
+                icon.classList.add('text-accent', 'fill-accent');
+            } else {
+                addBtn.classList.add('hidden');
+                addBtn.classList.remove('flex');
+                icon.classList.remove('text-accent', 'fill-accent');
+            }
+        }
+
+        function openModal(id) {
+            const m = document.getElementById(id);
+            m.classList.remove('hidden');
+            setTimeout(() => { document.getElementById(id + 'Content')?.classList.replace('scale-95', 'scale-100'); }, 10);
+        }
+
+        function closeModal(id) {
+            const m = document.getElementById(id);
+            document.getElementById(id + 'Content')?.classList.replace('scale-100', 'scale-95');
+            setTimeout(() => { m.classList.add('hidden'); }, 150);
+        }
+
+        function openAddVideoModal() {
+            document.getElementById('ytUrl').value = '';
+            document.getElementById('videoDuration').value = '';
+            document.getElementById('customTitle').value = '';
+            document.getElementById('channelAvatarUrl').value = '';
+            openModal('addVideoModal');
+        }
+
+        function deleteVideo(id, e) {
+            e.stopPropagation();
+            if(!confirm("Delete?")) return;
+            if(db) db.collection("videos").doc(id).delete();
+            else {
+                videos = videos.filter(v => (v.firebaseId || v.id) !== id);
+                localStorage.setItem('streamhub_videos', JSON.stringify(videos));
+                renderVideos();
+            }
+        }
+
+        function playVideo(id) {
+            const container = document.getElementById('playerContainer');
+            container.innerHTML = `<iframe width="100%" height="100%" src="https://www.youtube.com/embed/${id}?autoplay=1" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen class="max-w-6xl aspect-video w-full rounded-[2.5rem] shadow-2xl border border-white/10"></iframe>`;
+            openModal('playerModal');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closePlayer() { 
+            closeModal('playerModal'); 
+            setTimeout(() => document.getElementById('playerContainer').innerHTML = '', 400); 
+            document.body.style.overflow = '';
+        }
+
+        function handleSearch() { renderVideos(document.getElementById('searchInput').value); }
+        function goHome() { document.getElementById('searchInput').value = ''; renderVideos(); }
+
+        window.onload = init;
+        lucide.createIcons();
+    </script>
+</body>
+</html>
